@@ -55,3 +55,16 @@ OpenCred is a Git-native, decentralized trust and campaign-detection system for 
 - Keep each change small and focused on one phase.
 - Run `ruff`, `mypy`, and `pytest` before reporting a step as complete.
 - Report which tests you ran and their results.
+
+---
+
+## Graphify
+
+This repo is indexed in Graphify. For questions about code structure, callers, dependencies, or the impact of a change, use Graphify's MCP tools before grep or reading files one by one: query_graph for how something works, graphify_find for where a symbol is defined, graphify_callers / graphify_callees for who calls what, graphify_impact for what a change could affect. Use grep for exact strings, such as error messages or config keys. If a Graphify tool fails or the repository isn't indexed, say so, then fall back to grep.
+
+---
+
+## Skills & Capabilities
+
+- **Review Before Each Prompt**: Before tackling any prompt or task, review available skills in `.agents/skills/` (including `find-skills`) to check if an existing skill applies.
+- **Skill Discovery**: When a prompt involves specialized tools, libraries, or capabilities that could benefit from an agent skill, consult `find-skills` (`npx skills find <query>` / `npx skills add <package>`) to discover and load relevant skills.
