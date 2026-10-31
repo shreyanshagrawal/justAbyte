@@ -2,6 +2,11 @@
 
 __version__ = "0.1.0"
 
+from opencred.core.aggregate import (
+    ExternalSignal,
+    aggregate_external,
+)
+from opencred.core.graph import TrustGraph
 from opencred.core.manifests import (
     ManifestParseResult,
     parse_manifest,
@@ -17,6 +22,11 @@ from opencred.core.models import (
     TrustEdge,
     to_canonical_json,
 )
+from opencred.core.propagation import (
+    PathChoice,
+    best_path_per_origin,
+    path_weight,
+)
 
 __all__ = [
     "__version__",
@@ -24,11 +34,17 @@ __all__ = [
     "AssertionKind",
     "ContributionEvent",
     "ContributionEventKind",
+    "ExternalSignal",
     "ManifestParseResult",
     "OpenCredModel",
+    "PathChoice",
     "PullRequestRecord",
     "RepoId",
     "TrustEdge",
+    "TrustGraph",
+    "aggregate_external",
+    "best_path_per_origin",
     "parse_manifest",
+    "path_weight",
     "to_canonical_json",
 ]
