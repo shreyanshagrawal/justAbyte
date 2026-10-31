@@ -4,7 +4,9 @@ Combines assertions from trusted peer repositories using origin deduplication,
 shortest/strongest eligible paths, and weighted averaging over propagation weights.
 """
 
-from pydantic import Field
+from typing import Any
+
+from pydantic import AliasChoices, Field, model_validator
 
 from opencred.core.graph import TrustGraph
 from opencred.core.models import Assertion, AssertionKind, OpenCredModel, RepoId
@@ -15,11 +17,14 @@ class ExternalSignal(OpenCredModel):
     """Aggregated trust signal derived from reachable external peer repositories."""
 
     value: float = Field(
+        default=0.0,
         ge=-1.0,
         le=1.0,
+        validation_alias=AliasChoices("value", "raw_trust"),
         description="Weighted average trust signal in [-1.0, +1.0]",
     )
     total_weight: float = Field(
+        default=0.0,
         ge=0.0,
         description="Sum of path weights for contributing origins",
     )
@@ -31,6 +36,54 @@ class ExternalSignal(OpenCredModel):
         default_factory=list,
         description="Origins that were queried or reachable but excluded, paired with reasons",
     )
+    denouncing_origins: list[RepoId] = Field(
+        default_factory=list,
+        description="Origin repositories that denounced the subject",
+    )
+    vouching_origins: list[RepoId] = Field(
+        default_factory=list,
+        description="Origin repositories that vouched for the subject",
+    )
+
+    @property
+    def raw_trust(self) -> float:
+        return self.value
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_assertions(cls, data: Any) -> Any:
+        """Allow callers to pass 'denouncements' or 'vouches' lists of Assertion or RepoId."""
+        if isinstance(data, dict):
+            if "denouncements" in data and "denouncing_origins" not in data:
+                raw_denounces = data.pop("denouncements")
+                origins: list[Any] = []
+                max_str = 0.0
+                for item in raw_denounces:
+                    if isinstance(item, Assertion):
+                        origins.append(item.origin)
+                        max_str = max(max_str, item.strength)
+                    else:
+                        origins.append(item)
+                        max_str = 1.0
+                data["denouncing_origins"] = origins
+                if "value" not in data and "raw_trust" not in data and max_str > 0:
+                    data["value"] = -max_str
+
+            if "vouches" in data and "vouching_origins" not in data:
+                raw_vouches = data.pop("vouches")
+                origins = []
+                max_str = 0.0
+                for item in raw_vouches:
+                    if isinstance(item, Assertion):
+                        origins.append(item.origin)
+                        max_str = max(max_str, item.strength)
+                    else:
+                        origins.append(item)
+                        max_str = 1.0
+                data["vouching_origins"] = origins
+                if "value" not in data and "raw_trust" not in data and max_str > 0:
+                    data["value"] = max_str
+        return data
 
 
 def aggregate_external(
