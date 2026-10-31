@@ -3,6 +3,7 @@
 Uses typer.testing.CliRunner to test all CLI commands, exit codes, and output formats.
 """
 
+import re
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -11,6 +12,14 @@ from opencred.cli.main import app
 
 runner = CliRunner()
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+ANSI_REGEX = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def _clean_output(text: str) -> str:
+    """Remove ANSI escape sequences, table borders, and normalize whitespace."""
+    no_ansi = ANSI_REGEX.sub("", text)
+    no_borders = no_ansi.replace("│", " ").replace("╭", " ").replace("╰", " ").replace("─", " ")
+    return " ".join(no_borders.split())
 
 
 def test_manifest_command_on_fixture_prints_expected_json() -> None:
@@ -173,18 +182,18 @@ def test_unknown_command_exits_with_code_2() -> None:
 
 def test_help_output_documents_now_flag_and_clock_rules() -> None:
     """--help for assess documents that the CLI uses current time only for telemetry freshness."""
-    result = runner.invoke(app, ["assess", "--help"])
+    result = runner.invoke(app, ["assess", "--help"], color=False)
     assert result.exit_code == 0
-    assert "--now" in result.stdout
-    cleaned = result.stdout.replace("│", " ")
-    normalized = " ".join(cleaned.split())
-    assert "The CLI never reads the system clock except through this flag" in normalized
-    assert "telemetry freshness only" in normalized
+    clean_text = _clean_output(result.stdout)
+    assert "--now" in clean_text
+    assert "The CLI never reads the system clock except through this flag" in clean_text
+    assert "telemetry freshness only" in clean_text
 
 
 def test_help_output_for_all_commands() -> None:
     """Verify --help executes successfully for all commands."""
     for cmd in ["manifest", "trust", "assess", "simulate"]:
-        res = runner.invoke(app, [cmd, "--help"])
+        res = runner.invoke(app, [cmd, "--help"], color=False)
         assert res.exit_code == 0
-        assert f"Usage: opencred {cmd}" in res.stdout or cmd in res.stdout
+        clean_text = _clean_output(res.stdout)
+        assert f"Usage: opencred {cmd}" in clean_text or cmd in clean_text
