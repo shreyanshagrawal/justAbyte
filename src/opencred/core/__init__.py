@@ -38,6 +38,14 @@ from opencred.core.propagation import (
     best_path_per_origin,
     path_weight,
 )
+from opencred.core.telemetry import (
+    TelemetryEntry,
+    TelemetryLoadResult,
+    TelemetryPayload,
+    TelemetryStatus,
+    load_telemetry,
+    telemetry_campaign_risk,
+)
 
 __all__ = [
     "__version__",
@@ -51,6 +59,10 @@ __all__ = [
     "PathChoice",
     "PullRequestRecord",
     "RepoId",
+    "TelemetryEntry",
+    "TelemetryLoadResult",
+    "TelemetryPayload",
+    "TelemetryStatus",
     "TrustEdge",
     "TrustGraph",
     "aggregate_external",
@@ -58,11 +70,13 @@ __all__ = [
     "estimate_similarity",
     "exact_fingerprint",
     "jaccard",
+    "load_telemetry",
     "minhash_signature",
     "normalize_diff",
     "parse_manifest",
     "path_set",
     "path_weight",
     "shingles",
+    "telemetry_campaign_risk",
     "to_canonical_json",
 ]
