@@ -20,6 +20,9 @@ dev = [
     "mypy",
 ]
 
+[project.scripts]
+opencred = "opencred.cli.main:app"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
