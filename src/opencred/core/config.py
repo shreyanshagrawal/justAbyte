@@ -127,3 +127,25 @@ CAMPAIGN_EXCLUSION_FILE_PATTERNS: tuple[str, ...] = (
 CAMPAIGN_EXCLUSION_DIFF_PATTERNS: tuple[str, ...] = (
     r"""(?i)^[+-]\s*("version"|version|__version__)\s*[:=]\s*["\']v?\d+""",
 )
+
+# ==============================================================================
+# Triage Decision Parameters (AGENTS.md rules 2, 6, 8, 9)
+#
+# Starting values to be tuned by simulation, not validated optima.
+# ==============================================================================
+
+# Campaign risk threshold at or above which an alert to investigate is triggered.
+# STARTING VALUE: Set to 0.6.
+CAMPAIGN_ALERT_THRESHOLD: float = 0.6
+
+# Campaign risk threshold below which campaign risk is considered low.
+# STARTING VALUE: Set to 0.3.
+CAMPAIGN_LOW_THRESHOLD: float = 0.3
+
+# Contribution quality evidence threshold required for newcomer fair review.
+# STARTING VALUE: Set to 0.5.
+QUALITY_FAIR_THRESHOLD: float = 0.5
+
+# Network trust threshold required for normal standard review.
+# STARTING VALUE: Set to 0.3.
+TRUST_NORMAL_THRESHOLD: float = 0.3
