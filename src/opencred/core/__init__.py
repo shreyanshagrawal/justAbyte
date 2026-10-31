@@ -6,10 +6,21 @@ from opencred.core.aggregate import (
     ExternalSignal,
     aggregate_external,
 )
+from opencred.core.fingerprint import (
+    exact_fingerprint,
+    jaccard,
+    normalize_diff,
+    path_set,
+    shingles,
+)
 from opencred.core.graph import TrustGraph
 from opencred.core.manifests import (
     ManifestParseResult,
     parse_manifest,
+)
+from opencred.core.minhash import (
+    estimate_similarity,
+    minhash_signature,
 )
 from opencred.core.models import (
     Assertion,
@@ -44,7 +55,14 @@ __all__ = [
     "TrustGraph",
     "aggregate_external",
     "best_path_per_origin",
+    "estimate_similarity",
+    "exact_fingerprint",
+    "jaccard",
+    "minhash_signature",
+    "normalize_diff",
     "parse_manifest",
+    "path_set",
     "path_weight",
+    "shingles",
     "to_canonical_json",
 ]
