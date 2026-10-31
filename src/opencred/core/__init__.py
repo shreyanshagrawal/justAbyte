@@ -21,10 +21,21 @@ from opencred.core.corroboration import (
     LocalEvidence,
     apply_corroboration,
 )
+from opencred.core.fingerprint import (
+    exact_fingerprint,
+    jaccard,
+    normalize_diff,
+    path_set,
+    shingles,
+)
 from opencred.core.graph import TrustGraph
 from opencred.core.manifests import (
     ManifestParseResult,
     parse_manifest,
+)
+from opencred.core.minhash import (
+    estimate_similarity,
+    minhash_signature,
 )
 from opencred.core.models import (
     Assertion,
@@ -76,9 +87,16 @@ __all__ = [
     "best_path_per_origin",
     "cap_group_influence",
     "contribution_quality_evidence",
+    "estimate_similarity",
+    "exact_fingerprint",
     "find_mutual_groups",
     "is_newcomer",
+    "jaccard",
+    "minhash_signature",
+    "normalize_diff",
     "parse_manifest",
+    "path_set",
     "path_weight",
+    "shingles",
     "to_canonical_json",
 ]
