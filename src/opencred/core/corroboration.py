@@ -10,17 +10,16 @@ Implements AGENTS.md rule 5:
 - Explainable output strings accompany each applied cap or threshold.
 """
 
-from typing import Any
+from pydantic import AliasChoices, Field
 
-from pydantic import AliasChoices, Field, model_validator
-
+from opencred.core.aggregate import ExternalSignal
 from opencred.core.config import (
     EXTERNAL_SINGLE_DENOUNCE_CAP,
     LOCAL_DENOUNCE_WEIGHT,
     MIN_INDEPENDENT_ORIGINS_FOR_SEVERE,
     SEVERE_THRESHOLD,
 )
-from opencred.core.models import Assertion, OpenCredModel, RepoId
+from opencred.core.models import OpenCredModel
 
 
 class LocalEvidence(OpenCredModel):
@@ -44,61 +43,6 @@ class LocalEvidence(OpenCredModel):
     @property
     def vouched(self) -> bool:
         return self.has_vouch
-
-
-class ExternalSignal(OpenCredModel):
-    """Aggregated external network signals prior to corroboration."""
-
-    raw_trust: float = Field(
-        default=0.0,
-        ge=-1.0,
-        le=1.0,
-        description="Raw propagated network trust in [-1.0, +1.0]",
-    )
-    denouncing_origins: list[RepoId] = Field(
-        default_factory=list,
-        description="Origin repositories that denounced the subject (may include relayed copies)",
-    )
-    vouching_origins: list[RepoId] = Field(
-        default_factory=list,
-        description="Origin repositories that vouched for the subject",
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _normalize_assertions(cls, data: Any) -> Any:
-        """Allow callers to pass 'denouncements' or 'vouches' lists of Assertion or RepoId."""
-        if isinstance(data, dict):
-            if "denouncements" in data and "denouncing_origins" not in data:
-                raw_denounces = data.pop("denouncements")
-                origins: list[Any] = []
-                max_str = 0.0
-                for item in raw_denounces:
-                    if isinstance(item, Assertion):
-                        origins.append(item.origin)
-                        max_str = max(max_str, item.strength)
-                    else:
-                        origins.append(item)
-                        max_str = 1.0
-                data["denouncing_origins"] = origins
-                if "raw_trust" not in data and max_str > 0:
-                    data["raw_trust"] = -max_str
-
-            if "vouches" in data and "vouching_origins" not in data:
-                raw_vouches = data.pop("vouches")
-                origins = []
-                max_str = 0.0
-                for item in raw_vouches:
-                    if isinstance(item, Assertion):
-                        origins.append(item.origin)
-                        max_str = max(max_str, item.strength)
-                    else:
-                        origins.append(item)
-                        max_str = 1.0
-                data["vouching_origins"] = origins
-                if "raw_trust" not in data and max_str > 0:
-                    data["raw_trust"] = max_str
-        return data
 
 
 class CorroboratedSignal(OpenCredModel):
@@ -156,10 +100,18 @@ def apply_corroboration(local: LocalEvidence, external: ExternalSignal) -> Corro
             independent_denounce_count=0,
         )
 
+    raw_trust = external.raw_trust
+    denounce_origins = external.denouncing_origins or (
+        external.contributing_origins if raw_trust < 0 else []
+    )
+    vouch_origins = external.vouching_origins or (
+        external.contributing_origins if raw_trust > 0 else []
+    )
+
     # Deduplicate external denouncing origins (Rule 4 of AGENTS.md: origin deduplication)
-    distinct_denounce_origins = sorted(list(set(external.denouncing_origins)))
+    distinct_denounce_origins = sorted(list(set(denounce_origins)))
     independent_count = len(distinct_denounce_origins)
-    total_denounce_copies = len(external.denouncing_origins)
+    total_denounce_copies = len(denounce_origins)
 
     if total_denounce_copies > independent_count:
         relayed = total_denounce_copies - independent_count
@@ -168,7 +120,6 @@ def apply_corroboration(local: LocalEvidence, external: ExternalSignal) -> Corro
             f"{independent_count} independent origin(s) ({relayed} relayed duplicate(s) ignored)."
         )
 
-    raw_trust = external.raw_trust
     corroborated_trust: float
 
     # Evaluate negative trust (external denouncements)
@@ -209,7 +160,7 @@ def apply_corroboration(local: LocalEvidence, external: ExternalSignal) -> Corro
     elif raw_trust > 0.0:
         # Rule 4: External vouches are not capped
         corroborated_trust = raw_trust
-        vouch_count = len(set(external.vouching_origins)) or 1
+        vouch_count = len(set(vouch_origins)) or 1
         notes.append(
             f"External vouch accepted without capping from {vouch_count} origin(s) "
             f"(trust: {corroborated_trust:.2f})."
