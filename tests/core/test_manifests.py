@@ -241,4 +241,3 @@ class TestCompatibilityWithUpstreamVouch:
         assert run1.trust_edges == run2.trust_edges
         assert run1.errors == run2.errors
         assert run1.warnings == run2.warnings
-
