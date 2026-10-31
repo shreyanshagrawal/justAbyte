@@ -101,7 +101,12 @@ export function findFirstDifference(
   return null;
 }
 
-export function runSimulationAndGetOutput(rootDir: string): {
+export function getRepoRoot(): string {
+  const currentFile = fileURLToPath(import.meta.url);
+  return path.resolve(path.dirname(currentFile), '..');
+}
+
+export function runSimulationAndGetOutput(rootDir = getRepoRoot()): {
   rawBuffer: Buffer;
   parsedJson: unknown;
 } {
@@ -117,7 +122,7 @@ export function runSimulationAndGetOutput(rootDir: string): {
   return { rawBuffer, parsedJson };
 }
 
-export function checkDeterminism(rootDir = process.cwd()): {
+export function checkDeterminism(rootDir = getRepoRoot()): {
   identical: boolean;
   diff: DiffResult | null;
 } {

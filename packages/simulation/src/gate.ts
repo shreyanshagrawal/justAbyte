@@ -5,12 +5,18 @@ import { GateThresholds, SimulationResult, ContributorEvaluation } from './types
 import { generateScenario } from './scenario.js';
 import { evaluateScenario } from './evaluator.js';
 
+export function getPackageDir(): string {
+  const currentFile = fileURLToPath(import.meta.url);
+  return path.resolve(path.dirname(currentFile), '..');
+}
+
 export function loadThresholds(filePath?: string): GateThresholds {
+  const packageDir = getPackageDir();
   const candidatePaths = [
     filePath,
+    path.join(packageDir, 'gates.json'),
     path.resolve(process.cwd(), 'packages/simulation/gates.json'),
     path.resolve(process.cwd(), 'simulation/gates.json'),
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../gates.json'),
   ].filter(Boolean) as string[];
 
   for (const p of candidatePaths) {
@@ -147,24 +153,16 @@ export function runSimulationGate(customThresholdsPath?: string): SimulationResu
     violations,
   };
 
-  // Ensure output directory exists
-  const outputDirs = [
-    path.resolve(process.cwd(), 'packages/simulation/output'),
-    path.resolve(process.cwd(), 'simulation/output'),
-  ];
+  // Ensure output directory exists in packages/simulation/output
+  const packageDir = getPackageDir();
+  const outputDir = path.join(packageDir, 'output');
+  fs.mkdirSync(outputDir, { recursive: true });
 
-  for (const dir of outputDirs) {
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, 'simulation-report.json'),
-        JSON.stringify(result, null, 2) + '\n',
-      );
-      fs.writeFileSync(path.join(dir, 'simulation-report.md'), generateMarkdownReport(result));
-    } catch {
-      // Continue to next directory if path is redundant
-    }
-  }
+  fs.writeFileSync(
+    path.join(outputDir, 'simulation-report.json'),
+    JSON.stringify(result, null, 2) + '\n',
+  );
+  fs.writeFileSync(path.join(outputDir, 'simulation-report.md'), generateMarkdownReport(result));
 
   return result;
 }
