@@ -179,4 +179,3 @@ class TestTrustGraphReachableWithin:
 
         with pytest.raises(ValueError, match="max_hops must be 1 or 2"):
             graph.reachable_within(repo_a, max_hops=invalid_hops)
-

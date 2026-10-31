@@ -100,4 +100,3 @@ def best_path_per_origin(
 
 
 __all__ = ["PathChoice", "best_path_per_origin", "path_weight"]
-
