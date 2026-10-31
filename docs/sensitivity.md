@@ -50,3 +50,4 @@ Based strictly on the measured metrics produced by `scripts/sweep.py`:
 ### 4. Fairness and Suppression Invariance
 - **Newcomer Fairness Violations**: Strictly `0` across all 9 parameter configurations, confirming that adjusting campaign detection sensitivity does not introduce negative trust or unwarranted scrutiny for ordinary newcomers.
 - **Ring Suppression & Propagation Rounds**: Stable at `-0.20` and `2` rounds across all configurations, demonstrating that campaign detection parameters operate independently of the web-of-trust corroboration and cluster influence mechanisms.
+

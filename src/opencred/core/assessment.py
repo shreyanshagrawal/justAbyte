@@ -88,6 +88,7 @@ def assess(
     telemetry: dict[RepoId, TelemetryLoadResult],
     history: list[ContributionEvent],
     config: QualityConfig | Any = None,
+    analyzer: Any = None,
 ) -> Assessment:
     """Assess a pull request and return a deterministic, advisory Assessment result.
 
@@ -222,6 +223,15 @@ def assess(
     )
     if matched_candidate:
         campaign_risk = matched_candidate.campaign_risk
+        if analyzer is not None:
+            # Rule: The analyzer only receives candidates, never every PR.
+            ai_res = analyzer.analyze(matched_candidate, [pr])
+            notes_accumulator.append(
+                f"ai analyzer ({ai_res.model_id}): verdict={ai_res.verdict_label}, "
+                f"uncertainty={ai_res.uncertainty}"
+            )
+            for ev in ai_res.evidence:
+                notes_accumulator.append(f"ai evidence: {ev}")
     else:
         campaign_risk = 0.0
 
