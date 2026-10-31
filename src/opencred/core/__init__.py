@@ -6,11 +6,23 @@ from opencred.core.aggregate import (
     ExternalSignal,
     aggregate_external,
 )
+from opencred.core.campaign import (
+    CampaignCandidate,
+    CampaignDetectionResult,
+    UnionFind,
+    calculate_pr_similarity,
+    detect_campaigns,
+)
 from opencred.core.clusters import (
     cap_group_influence,
     find_mutual_groups,
 )
 from opencred.core.config import (
+    CAMPAIGN_BURST_MIN_PRS,
+    CAMPAIGN_MIN_AUTHORS,
+    CAMPAIGN_MIN_REPOS,
+    CAMPAIGN_SIMILARITY_THRESHOLD,
+    CAMPAIGN_WINDOW_HOURS,
     EXTERNAL_SINGLE_DENOUNCE_CAP,
     LOCAL_DENOUNCE_WEIGHT,
     MIN_INDEPENDENT_ORIGINS_FOR_SEVERE,
@@ -61,6 +73,11 @@ from opencred.core.quality import (
 )
 
 __all__ = [
+    "CAMPAIGN_BURST_MIN_PRS",
+    "CAMPAIGN_MIN_AUTHORS",
+    "CAMPAIGN_MIN_REPOS",
+    "CAMPAIGN_SIMILARITY_THRESHOLD",
+    "CAMPAIGN_WINDOW_HOURS",
     "EXTERNAL_SINGLE_DENOUNCE_CAP",
     "LOCAL_DENOUNCE_WEIGHT",
     "MIN_INDEPENDENT_ORIGINS_FOR_SEVERE",
@@ -68,6 +85,8 @@ __all__ = [
     "__version__",
     "Assertion",
     "AssertionKind",
+    "CampaignCandidate",
+    "CampaignDetectionResult",
     "ContributionEvent",
     "ContributionEventKind",
     "CorroboratedSignal",
@@ -82,11 +101,14 @@ __all__ = [
     "RepoId",
     "TrustEdge",
     "TrustGraph",
+    "UnionFind",
     "aggregate_external",
     "apply_corroboration",
     "best_path_per_origin",
+    "calculate_pr_similarity",
     "cap_group_influence",
     "contribution_quality_evidence",
+    "detect_campaigns",
     "estimate_similarity",
     "exact_fingerprint",
     "find_mutual_groups",
