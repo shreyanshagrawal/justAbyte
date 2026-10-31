@@ -71,6 +71,14 @@ from opencred.core.quality import (
     QualityEvidence,
     contribution_quality_evidence,
 )
+from opencred.core.telemetry import (
+    TelemetryEntry,
+    TelemetryLoadResult,
+    TelemetryPayload,
+    TelemetryStatus,
+    load_telemetry,
+    telemetry_campaign_risk,
+)
 
 __all__ = [
     "CAMPAIGN_BURST_MIN_PRS",
@@ -99,6 +107,10 @@ __all__ = [
     "QualityConfig",
     "QualityEvidence",
     "RepoId",
+    "TelemetryEntry",
+    "TelemetryLoadResult",
+    "TelemetryPayload",
+    "TelemetryStatus",
     "TrustEdge",
     "TrustGraph",
     "UnionFind",
@@ -114,11 +126,13 @@ __all__ = [
     "find_mutual_groups",
     "is_newcomer",
     "jaccard",
+    "load_telemetry",
     "minhash_signature",
     "normalize_diff",
     "parse_manifest",
     "path_set",
     "path_weight",
     "shingles",
+    "telemetry_campaign_risk",
     "to_canonical_json",
 ]
