@@ -48,4 +48,3 @@ def is_newcomer(
 
 
 __all__ = ["is_newcomer"]
-

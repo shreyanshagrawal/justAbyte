@@ -66,4 +66,3 @@ BOILERPLATE_PHRASES: tuple[str, ...] = (
     "changes",
     "no description",
 )
-
