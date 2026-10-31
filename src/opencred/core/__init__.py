@@ -6,6 +6,10 @@ from opencred.core.aggregate import (
     ExternalSignal,
     aggregate_external,
 )
+from opencred.core.assessment import (
+    Assessment,
+    assess,
+)
 from opencred.core.campaign import (
     CampaignCandidate,
     CampaignDetectionResult,
@@ -106,6 +110,7 @@ __all__ = [
     "__version__",
     "Assertion",
     "AssertionKind",
+    "Assessment",
     "CampaignCandidate",
     "CampaignDetectionResult",
     "ContributionEvent",
@@ -131,6 +136,7 @@ __all__ = [
     "UnionFind",
     "aggregate_external",
     "apply_corroboration",
+    "assess",
     "best_path_per_origin",
     "calculate_pr_similarity",
     "cap_group_influence",

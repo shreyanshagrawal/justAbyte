@@ -209,11 +209,16 @@ def aggregate_external(
     weighted_avg = round(numerator / total_weight, 6)
     weighted_avg = max(-1.0, min(1.0, weighted_avg))
 
+    denouncing = sorted([origin for origin, _, contrib in contributing_data if contrib < 0])
+    vouching = sorted([origin for origin, _, contrib in contributing_data if contrib > 0])
+
     return ExternalSignal(
         value=weighted_avg,
         total_weight=round(total_weight, 6),
         contributing_origins=sorted([origin for origin, _, _ in contributing_data]),
         excluded_origins=sorted(excluded_origins, key=lambda x: (x[0], x[1])),
+        denouncing_origins=denouncing,
+        vouching_origins=vouching,
     )
 
 

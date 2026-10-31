@@ -51,6 +51,9 @@ from opencred.core.models import (
     PullRequestRecord,
     RepoId,
 )
+from opencred.core.telemetry import TelemetryEntry
+
+_EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 
 class CampaignCandidate(OpenCredModel):
@@ -145,39 +148,91 @@ class UnionFind:
 
 
 class _PRFeatures:
-    """Precomputed deterministic features for a pull request."""
+    """Precomputed deterministic features for a pull request or telemetry record."""
 
     __slots__ = (
+        "author",
         "desc_sig",
         "diff_fp",
         "diff_sig",
         "is_benign",
         "key",
         "norm_diff",
+        "opened_at",
         "paths",
-        "pr",
+        "repo",
     )
 
-    def __init__(self, pr: PullRequestRecord) -> None:
-        self.pr = pr
-        self.key = f"{pr.repo}#{pr.number}"
-        self.norm_diff = normalize_diff(pr.normalized_diff)
-        self.diff_fp = exact_fingerprint(pr.normalized_diff)
+    def __init__(
+        self,
+        key: str,
+        repo: RepoId,
+        author: str,
+        opened_at: datetime,
+        diff_fp: str,
+        diff_sig: tuple[int, ...],
+        desc_sig: tuple[int, ...],
+        paths: frozenset[str],
+        norm_diff: str = "",
+        is_benign: bool = False,
+    ) -> None:
+        self.key = key
+        self.repo = repo
+        self.author = author
+        self.opened_at = opened_at
+        self.diff_fp = diff_fp
+        self.diff_sig = diff_sig
+        self.desc_sig = desc_sig
+        self.paths = paths
+        self.norm_diff = norm_diff
+        self.is_benign = is_benign
 
-        # MinHash signature for diff tokens
-        diff_tokens = frozenset(self.norm_diff.split())
-        self.diff_sig = minhash_signature(diff_tokens, num_perm=128)
-
-        # MinHash signature for description word 3-grams
+    @classmethod
+    def from_pr(cls, pr: PullRequestRecord) -> "_PRFeatures":
+        key = f"{pr.repo}#{pr.number}"
+        norm_diff = normalize_diff(pr.normalized_diff)
+        diff_fp = exact_fingerprint(pr.normalized_diff)
+        diff_tokens = frozenset(norm_diff.split())
+        diff_sig = minhash_signature(diff_tokens, num_perm=128)
         desc_text = f"{pr.title}\n{pr.body}".strip()
         desc_shing = shingles(desc_text, k=3)
-        self.desc_sig = minhash_signature(desc_shing, num_perm=128)
+        desc_sig = minhash_signature(desc_shing, num_perm=128)
+        paths = path_set(pr.changed_files)
+        is_benign = _check_is_benign_pr(pr, norm_diff)
+        return cls(
+            key=key,
+            repo=pr.repo,
+            author=pr.author,
+            opened_at=pr.opened_at,
+            diff_fp=diff_fp,
+            diff_sig=diff_sig,
+            desc_sig=desc_sig,
+            paths=paths,
+            norm_diff=norm_diff,
+            is_benign=is_benign,
+        )
 
-        # Normalized path set
-        self.paths = path_set(pr.changed_files)
-
-        # Check whether this individual PR matches benign patterns
-        self.is_benign = _check_is_benign_pr(pr, self.norm_diff)
+    @classmethod
+    def from_telemetry(cls, repo: RepoId, entry: TelemetryEntry) -> "_PRFeatures":
+        key = f"{repo}#{entry.pr_number}"
+        paths = path_set(entry.path_set)
+        all_lockfiles = bool(paths) and all(
+            Path(f).name.lower() in CAMPAIGN_EXCLUSION_FILE_PATTERNS
+            or f.lower().endswith(CAMPAIGN_EXCLUSION_FILE_PATTERNS)
+            for f in paths
+        )
+        return cls(
+            key=key,
+            repo=repo,
+            author=entry.author,
+            opened_at=entry.opened_at,
+            diff_fp=entry.exact_fingerprint,
+            diff_sig=tuple(entry.minhash_signature),
+            desc_sig=tuple(entry.description_similarity_signature),
+            paths=paths,
+            norm_diff="",
+            is_benign=all_lockfiles,
+        )
 
 
 def _check_is_benign_pr(pr: PullRequestRecord, norm_diff: str) -> bool:
@@ -257,15 +312,20 @@ def calculate_pr_similarity(pr_a: PullRequestRecord, pr_b: PullRequestRecord) ->
     Returns:
         A float similarity score in [0.0, 1.0].
     """
-    feat_a = _PRFeatures(pr_a)
-    feat_b = _PRFeatures(pr_b)
+    feat_a = _PRFeatures.from_pr(pr_a)
+    feat_b = _PRFeatures.from_pr(pr_b)
     return _calculate_feature_similarity(feat_a, feat_b)
 
 
 def _calculate_feature_similarity(feat_a: _PRFeatures, feat_b: _PRFeatures) -> float:
     """Compute similarity between two precomputed PR feature objects."""
     # Strong signal: exact normalized diff fingerprint match
-    if feat_a.norm_diff and feat_b.norm_diff and feat_a.diff_fp == feat_b.diff_fp:
+    if (
+        feat_a.diff_fp
+        and feat_b.diff_fp
+        and feat_a.diff_fp == feat_b.diff_fp
+        and feat_a.diff_fp != _EMPTY_SHA256
+    ):
         return 1.0
 
     diff_sim = estimate_similarity(feat_a.diff_sig, feat_b.diff_sig)
@@ -283,31 +343,41 @@ def _calculate_feature_similarity(feat_a: _PRFeatures, feat_b: _PRFeatures) -> f
 def detect_campaigns(
     prs: list[PullRequestRecord],
     total_repos_in_scenario: int | None = None,
+    telemetry_entries: list[tuple[RepoId, TelemetryEntry]] | None = None,
 ) -> CampaignDetectionResult:
     """Detect coordinated multi-repository pull request campaigns.
 
     Args:
         prs: List of pull request records to evaluate.
         total_repos_in_scenario: Total count of distinct repositories in the evaluation
-            scenario (defaults to total distinct repositories in the input PR list, min 1).
+            scenario (defaults to total distinct repositories across all items, min 1).
+        telemetry_entries: Optional list of (RepoId, TelemetryEntry) tuples from telemetry.
 
     Returns:
         CampaignDetectionResult containing active candidates and excluded candidate components.
     """
-    if not prs:
+    features: list[_PRFeatures] = []
+    if prs:
+        sorted_prs = sorted(prs, key=lambda pr: (str(pr.repo), pr.number))
+        features.extend(_PRFeatures.from_pr(pr) for pr in sorted_prs)
+
+    if telemetry_entries:
+        sorted_telem = sorted(telemetry_entries, key=lambda t: (str(t[0]), t[1].pr_number))
+        features.extend(_PRFeatures.from_telemetry(repo, entry) for repo, entry in sorted_telem)
+
+    if not features:
         return CampaignDetectionResult()
 
+    # Sort all features deterministically by key
+    features.sort(key=lambda f: f.key)
+
     # Determine scenario baseline repository count
-    input_repo_count = len({pr.repo for pr in prs})
+    input_repo_count = len({f.repo for f in features})
     scenario_repos = (
         max(1, total_repos_in_scenario)
         if total_repos_in_scenario is not None
         else max(1, input_repo_count)
     )
-
-    # 1. Deterministic sorting and feature precomputation
-    sorted_prs = sorted(prs, key=lambda pr: (str(pr.repo), pr.number))
-    features = [_PRFeatures(pr) for pr in sorted_prs]
 
     # 2. Build connected components using Disjoint Set Union
     dsu = UnionFind(f.key for f in features)
@@ -319,7 +389,7 @@ def detect_campaigns(
             feat_j = features[j]
 
             # Link only if opened within the configured time window
-            hours = _hours_between(feat_i.pr.opened_at, feat_j.pr.opened_at)
+            hours = _hours_between(feat_i.opened_at, feat_j.opened_at)
             if hours > CAMPAIGN_WINDOW_HOURS:
                 continue
 
@@ -346,8 +416,8 @@ def detect_campaigns(
         #    - At least CAMPAIGN_MIN_AUTHORS distinct authors
         #    - At least CAMPAIGN_MIN_REPOS distinct repositories
         #    - At least CAMPAIGN_BURST_MIN_PRS PRs
-        distinct_authors = sorted({f.pr.author for f in comp_feats})
-        distinct_repos = sorted({f.pr.repo for f in comp_feats})
+        distinct_authors = sorted({f.author for f in comp_feats})
+        distinct_repos = sorted({f.repo for f in comp_feats})
         pr_keys = sorted([f.key for f in comp_feats])
         num_prs = len(comp_feats)
 
@@ -376,7 +446,7 @@ def detect_campaigns(
         all_identical_diffs = True
         first_fp = comp_feats[0].diff_fp
         for f in comp_feats:
-            if not f.norm_diff or f.diff_fp != first_fp:
+            if not f.diff_fp or f.diff_fp == _EMPTY_SHA256 or f.diff_fp != first_fp:
                 all_identical_diffs = False
                 break
 
@@ -397,8 +467,8 @@ def detect_campaigns(
         candidate_id = hashlib.sha256(",".join(pr_keys).encode("utf-8")).hexdigest()[:16]
 
         # Explainable signals
-        min_opened = min(f.pr.opened_at for f in comp_feats)
-        max_opened = max(f.pr.opened_at for f in comp_feats)
+        min_opened = min(f.opened_at for f in comp_feats)
+        max_opened = max(f.opened_at for f in comp_feats)
         span_hours = _hours_between(min_opened, max_opened)
 
         signals: list[str] = [
