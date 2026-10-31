@@ -130,3 +130,25 @@ def test_evaluate_cli_fails_on_failing_gate(tmp_path: Path) -> None:
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     assert proc.returncode == 1
     assert "Gate Status:** `FAILED`" in proc.stdout
+
+
+def test_sweep_script_execution(tmp_path: Path) -> None:
+    """scripts/sweep.py must execute across the 9 parameter combinations."""
+    out_table = tmp_path / "sweep_results.md"
+    cmd = [
+        sys.executable,
+        "scripts/sweep.py",
+        "--seed",
+        "42",
+        "--format",
+        "table",
+        "--out",
+        str(out_table),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    assert proc.returncode == 0
+    assert "Campaign Detection Parameter Sensitivity Sweep" in proc.stdout
+    assert out_table.exists()
+    content = out_table.read_text(encoding="utf-8")
+    assert "| `0.6` | 2 |" in content
+    assert "| `0.8` | 4 |" in content
