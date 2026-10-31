@@ -1,0 +1,7 @@
+{
+  "campaigns_missed_max": 0,
+  "legit_prs_flagged_for_investigation_max": 0,
+  "newcomer_fairness_violations_max": 0,
+  "ring_suppression_floor": -0.3,
+  "trap_prs_flagged_max": 0
+}

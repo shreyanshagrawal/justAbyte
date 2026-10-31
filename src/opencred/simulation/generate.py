@@ -291,19 +291,32 @@ def generate_scenario(seed: int, num_repos: int = 30) -> Scenario:
                     lines.append(f"# @trust-repo {peer} weight=0.90")
             lines.append(f"- {honest_targets[1]} coordinated smear target")
         else:
-            # Honest repository: trust 2 other honest repos and vouch for honest contributors
-            other_honest = [r for r in honest_repos if r != repo]
-            trusted_peers = rng.sample(other_honest, min(2, len(other_honest)))
-            trusted_peers.sort()
+            # Honest repository web of trust
+            # Adjacent honest repos are trusted to form a connected web of trust
+            honest_idx = honest_repos.index(repo)
+            trusted_peers = [
+                honest_repos[(honest_idx - 2) % len(honest_repos)],
+                honest_repos[(honest_idx - 1) % len(honest_repos)],
+                honest_repos[(honest_idx + 1) % len(honest_repos)],
+                honest_repos[(honest_idx + 2) % len(honest_repos)],
+            ]
+
+            # honest_repos[1] innocently trusts the denunciation rings at hop 1
+            # so honest_repos[0] reaches the rings in 2 propagation rounds
+            if repo == honest_repos[1]:
+                trusted_peers.append(ring_0_repos[0])
+                trusted_peers.append(ring_1_repos[0])
+
+            trusted_peers = sorted(set(trusted_peers))
             for peer in trusted_peers:
-                weight = 0.80 + (rng.randint(0, 3) * 0.05)
+                weight = 0.85
                 lines.append(f"# @trust-repo {peer} weight={weight:.2f}")
 
-            # Honest repos vouch for some established contributors and honest targets
+            # Vouches: honest repos vouch for established contributors
             vouches = [
                 established_usernames[rng.randint(0, len(established_usernames) - 1)],
-                honest_targets[0],
             ]
+
             vouches.sort()
             for vouch_user in sorted(set(vouches)):
                 lines.append(vouch_user)
@@ -462,12 +475,16 @@ def generate_scenario(seed: int, num_repos: int = 30) -> Scenario:
     legit_prs: list[PullRequestRecord] = []
     base_legit_time = datetime(2026, 10, 20, 0, 0, 0, tzinfo=UTC)
 
-    # 30 diverse PRs submitted by established authors and legitimate newcomers
-    legit_authors = established_usernames[2:] + newcomer_usernames[18:20]
+    # 30 diverse PRs submitted by honest targets, established authors, and legitimate newcomers
+    legit_authors = honest_targets + established_usernames[2:] + newcomer_usernames[18:20]
 
     for i in range(NUM_LEGIT_PRS):
         pr_author = legit_authors[i % len(legit_authors)]
-        target_repo = honest_repos[i % len(honest_repos)]
+        # Submit honest targets to honest_repos[0] to test ring suppression
+        if i < len(honest_targets):
+            target_repo = honest_repos[0]
+        else:
+            target_repo = honest_repos[i % len(honest_repos)]
         pr_num = 1000 + i
         pr_time = base_legit_time + timedelta(hours=i * 4)
 
