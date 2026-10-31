@@ -51,7 +51,7 @@ jobs:
           npm pack
 
       - name: Upload CLI package tarball
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: opencred-cli-tarball
           path: packages/cli/*.tgz
@@ -86,7 +86,7 @@ jobs:
 
       - name: Upload simulation report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: simulation-report-main
           path: |
