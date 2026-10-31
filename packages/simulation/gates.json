@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Configurable fairness gate thresholds for OpenCred simulation",
+  "scenario": {
+    "seed": 42
+  },
+  "newcomer": {
+    "minReputation": 0.0,
+    "maxRisk": 0.0,
+    "allowedRiskState": "insufficient_evidence"
+  },
+  "suppression": {
+    "legitimateContributorFloor": 0.4,
+    "maxAllowedSuppressionDrop": 0.15
+  },
+  "aiContributions": {
+    "minReputation": 0.0,
+    "maxRiskPenalty": 0.0
+  }
+}

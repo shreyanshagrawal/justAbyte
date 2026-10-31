@@ -1,0 +1,20 @@
+{
+  "name": "@opencred/core",
+  "version": "0.1.0",
+  "description": "Pure TypeScript engine for OpenCred (trust graph, propagation, scoring, fairness)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:fairness": "vitest run test/fairness"
+  }
+}
