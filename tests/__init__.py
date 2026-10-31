@@ -1,0 +1,1 @@
+"""OpenCred test suite."""
