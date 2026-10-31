@@ -1,0 +1,16 @@
+{
+  "author": "newbie",
+  "body": "Resolves issue #42 by implementing auth helper routines.",
+  "changed_files": [
+    "src/auth.py"
+  ],
+  "external_links": [],
+  "linked_issue_numbers": [
+    42
+  ],
+  "normalized_diff": "+ def helper(): return True",
+  "number": 1,
+  "opened_at": "2026-10-01T12:00:00Z",
+  "repo": "evaluator/repo",
+  "title": "Implement auth helper"
+}

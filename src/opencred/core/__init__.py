@@ -6,6 +6,10 @@ from opencred.core.aggregate import (
     ExternalSignal,
     aggregate_external,
 )
+from opencred.core.assessment import (
+    Assessment,
+    assess,
+)
 from opencred.core.campaign import (
     CampaignCandidate,
     CampaignDetectionResult,
@@ -18,7 +22,9 @@ from opencred.core.clusters import (
     find_mutual_groups,
 )
 from opencred.core.config import (
+    CAMPAIGN_ALERT_THRESHOLD,
     CAMPAIGN_BURST_MIN_PRS,
+    CAMPAIGN_LOW_THRESHOLD,
     CAMPAIGN_MIN_AUTHORS,
     CAMPAIGN_MIN_REPOS,
     CAMPAIGN_SIMILARITY_THRESHOLD,
@@ -26,7 +32,9 @@ from opencred.core.config import (
     EXTERNAL_SINGLE_DENOUNCE_CAP,
     LOCAL_DENOUNCE_WEIGHT,
     MIN_INDEPENDENT_ORIGINS_FOR_SEVERE,
+    QUALITY_FAIR_THRESHOLD,
     SEVERE_THRESHOLD,
+    TRUST_NORMAL_THRESHOLD,
 )
 from opencred.core.corroboration import (
     CorroboratedSignal,
@@ -79,9 +87,16 @@ from opencred.core.telemetry import (
     load_telemetry,
     telemetry_campaign_risk,
 )
+from opencred.core.triage import (
+    TriageDecision,
+    TriageOutcome,
+    decide,
+)
 
 __all__ = [
+    "CAMPAIGN_ALERT_THRESHOLD",
     "CAMPAIGN_BURST_MIN_PRS",
+    "CAMPAIGN_LOW_THRESHOLD",
     "CAMPAIGN_MIN_AUTHORS",
     "CAMPAIGN_MIN_REPOS",
     "CAMPAIGN_SIMILARITY_THRESHOLD",
@@ -89,10 +104,13 @@ __all__ = [
     "EXTERNAL_SINGLE_DENOUNCE_CAP",
     "LOCAL_DENOUNCE_WEIGHT",
     "MIN_INDEPENDENT_ORIGINS_FOR_SEVERE",
+    "QUALITY_FAIR_THRESHOLD",
     "SEVERE_THRESHOLD",
+    "TRUST_NORMAL_THRESHOLD",
     "__version__",
     "Assertion",
     "AssertionKind",
+    "Assessment",
     "CampaignCandidate",
     "CampaignDetectionResult",
     "ContributionEvent",
@@ -111,15 +129,19 @@ __all__ = [
     "TelemetryLoadResult",
     "TelemetryPayload",
     "TelemetryStatus",
+    "TriageDecision",
+    "TriageOutcome",
     "TrustEdge",
     "TrustGraph",
     "UnionFind",
     "aggregate_external",
     "apply_corroboration",
+    "assess",
     "best_path_per_origin",
     "calculate_pr_similarity",
     "cap_group_influence",
     "contribution_quality_evidence",
+    "decide",
     "detect_campaigns",
     "estimate_similarity",
     "exact_fingerprint",
