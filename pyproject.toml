@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencred"
+version = "0.1.0"
+description = "Git-native, decentralized trust and campaign-detection system for open-source contributions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2",
+    "typer",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "mypy",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "fairness: tests covering fairness properties of OpenCred evaluation",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.mypy]
+strict = true
+mypy_path = "src"
+

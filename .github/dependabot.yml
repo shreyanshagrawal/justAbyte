@@ -1,11 +1,11 @@
 version: 2
 updates:
-  - package-ecosystem: 'npm'
+  - package-ecosystem: 'pip'
     directory: '/'
     schedule:
       interval: 'weekly'
     groups:
-      npm-dependencies:
+      python-dependencies:
         patterns:
           - '*'
         update-types:

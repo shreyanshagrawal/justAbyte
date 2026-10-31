@@ -1,0 +1,1 @@
+"""OpenCred core unit tests."""
