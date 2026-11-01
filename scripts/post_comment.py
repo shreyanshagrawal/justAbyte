@@ -123,7 +123,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--comment-file",
+        "--body-file",
         type=Path,
+        dest="comment_file",
         required=True,
         help="Path to rendered comment Markdown file.",
     )

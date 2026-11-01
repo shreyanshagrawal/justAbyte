@@ -113,6 +113,7 @@ runs:
         PYTHONPATH: ${{ github.action_path }}
       run: |
         python "${{ github.action_path }}/scripts/post_comment.py" \
-          --body-file /tmp/comment.md \
+          --comment-file /tmp/comment.md \
           --repo "${{ github.repository }}" \
-          --pr "${{ github.event.pull_request.number }}"
+          --pr "${{ github.event.pull_request.number }}" \
+          --token "${{ inputs.github-token }}"
