@@ -47,5 +47,151 @@ jobs:
       - name: Typecheck with mypy
         run: mypy src
 
+      - name: Validate GitHub Actions workflow files
+        run: python scripts/check_workflows.py
+
       - name: Run unit tests with pytest
         run: pytest
+
+  fairness:
+    name: fairness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run fairness tests
+        run: pytest -m fairness
+
+  architecture:
+    name: architecture
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run architecture boundary check
+        run: python scripts/check_architecture.py
+
+      - name: Run architecture unit tests
+        run: pytest tests/action/test_architecture.py
+
+  simulation-gate:
+    name: simulation-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run simulation evaluation with gates
+        run: |
+          mkdir -p simulation_output
+          python scripts/evaluate.py --seed 42 --gates examples/gates.json --format markdown > simulation_output/evaluation_report.md
+          python scripts/evaluate.py --seed 42 --gates examples/gates.json --format json > simulation_output/evaluation_report.json
+
+      - name: Upload simulation report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-evaluation-results
+          path: simulation_output/
+          retention-days: 14
+
+  determinism:
+    name: determinism
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Generate seed-42 scenario twice
+        run: |
+          mkdir -p determinism_run
+          python scripts/simulate.py --seed 42 --out determinism_run/scenario_1.json
+          python scripts/simulate.py --seed 42 --out determinism_run/scenario_2.json
+          if ! cmp determinism_run/scenario_1.json determinism_run/scenario_2.json; then
+            echo "::error::Scenario generation is non-deterministic!"
+            diff -u determinism_run/scenario_1.json determinism_run/scenario_2.json | head -n 30
+            exit 1
+          fi
+
+      - name: Run assess pipeline twice and verify byte-for-byte determinism
+        run: |
+          python scripts/assess_scenario.py --scenario determinism_run/scenario_1.json --out determinism_run/assess_1.json
+          python scripts/assess_scenario.py --scenario determinism_run/scenario_2.json --out determinism_run/assess_2.json
+          if ! cmp determinism_run/assess_1.json determinism_run/assess_2.json; then
+            echo "::error::Assess pipeline output is non-deterministic!"
+            diff -u determinism_run/assess_1.json determinism_run/assess_2.json | head -n 30
+            exit 1
+          fi
