@@ -87,6 +87,8 @@ jobs:
 
       # Step 6: Render markdown comment using only validated fields
       - name: Render comment Markdown
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python scripts/render_comment.py artifacts/result.json --out comment.md
 
@@ -95,6 +97,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr_info.outputs.pr_number }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           python scripts/post_comment.py \
             --repo "${{ github.repository }}" \
