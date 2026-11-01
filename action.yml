@@ -47,6 +47,7 @@ runs:
     - name: Extract git diff between base and head
       shell: bash
       run: |
+        git fetch origin ${{ github.event.pull_request.base.sha }} || true
         git fetch origin ${{ github.event.pull_request.head.sha }} || true
         git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > /tmp/pr_diff.patch
 
