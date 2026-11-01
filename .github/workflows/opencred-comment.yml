@@ -66,7 +66,7 @@ jobs:
 
       # Step 3: Download assessment result artifact from triggering workflow run
       - name: Download opencred-result artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencred-result
           run-id: ${{ github.event.workflow_run.id }}
