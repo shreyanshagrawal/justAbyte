@@ -1,0 +1,118 @@
+name: 'OpenCred Assessment'
+description: 'Git-native, decentralized trust and campaign-detection for open-source PRs'
+author: 'OpenCred Contributors'
+
+inputs:
+  github-token:
+    description: 'GitHub token for posting PR comments'
+    required: false
+    default: ${{ github.token }}
+  manifest-dir:
+    description: 'Path to directory containing trust manifests'
+    required: false
+    default: 'manifests'
+  post-comment:
+    description: 'Whether to post an advisory comment to the pull request'
+    required: false
+    default: 'true'
+
+outputs:
+  triage-decision:
+    description: 'Recommended advisory triage category (VERIFIED, KNOWN, NEWCOMER, UNCERTAIN, SUSPICIOUS, FLAG)'
+    value: ${{ steps.assess.outputs.triage_decision }}
+  network-trust:
+    description: 'Evaluated network trust score in [-1.0, 1.0]'
+    value: ${{ steps.assess.outputs.network_trust }}
+  campaign-risk:
+    description: 'Evaluated campaign risk score in [0.0, 1.0]'
+    value: ${{ steps.assess.outputs.campaign_risk }}
+  contribution-quality:
+    description: 'Evaluated contribution quality evidence in [0.0, 1.0]'
+    value: ${{ steps.assess.outputs.contribution_quality }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install OpenCred CLI
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install "${{ github.action_path }}"
+
+    - name: Extract git diff between base and head
+      shell: bash
+      run: |
+        git fetch origin ${{ github.event.pull_request.head.sha }} || true
+        git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > /tmp/pr_diff.patch
+
+    - name: Build PR Record
+      shell: bash
+      run: |
+        python "${{ github.action_path }}/scripts/build_pr_record.py" \
+          --event "${{ github.event_path }}" \
+          --diff /tmp/pr_diff.patch \
+          --out /tmp/pr_record.json
+
+    - name: Run OpenCred Advisory Assessment
+      id: assess
+      shell: bash
+      run: |
+        mkdir -p /tmp/opencred/manifests /tmp/opencred/telemetry /tmp/opencred/history
+        if [ -d "${{ inputs.manifest-dir }}" ]; then
+          cp -r "${{ inputs.manifest-dir }}"/* /tmp/opencred/manifests/ 2>/dev/null || true
+        fi
+        echo "[]" > /tmp/opencred/history/contributor_history.json
+
+        opencred assess \
+          --pr /tmp/pr_record.json \
+          --base-manifests /tmp/opencred/manifests \
+          --telemetry-dir /tmp/opencred/telemetry \
+          --evaluator "${{ github.repository }}" \
+          --history /tmp/opencred/history/contributor_history.json \
+          --format json > /tmp/raw_assessment.json
+
+        python -c "
+        import json
+        with open('/tmp/raw_assessment.json') as f:
+            data = json.load(f)
+        result = {'assessment': data, 'pr_number': ${{ github.event.pull_request.number }}}
+        with open('/tmp/result.json', 'w') as f:
+            json.dump(result, f, indent=2)
+        "
+
+        # Export step outputs
+        TRIAGE=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['triage_decision'])")
+        TRUST=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['network_trust'])")
+        RISK=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['campaign_risk'])")
+        QUALITY=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['contribution_quality_evidence'])")
+
+        echo "triage_decision=${TRIAGE}" >> "$GITHUB_OUTPUT"
+        echo "network_trust=${TRUST}" >> "$GITHUB_OUTPUT"
+        echo "campaign_risk=${RISK}" >> "$GITHUB_OUTPUT"
+        echo "contribution_quality=${QUALITY}" >> "$GITHUB_OUTPUT"
+
+    - name: Render Comment Markdown
+      if: inputs.post-comment == 'true'
+      shell: bash
+      env:
+        PYTHONPATH: ${{ github.action_path }}
+      run: |
+        python "${{ github.action_path }}/scripts/render_comment.py" /tmp/result.json --out /tmp/comment.md
+
+    - name: Post or Update Advisory PR Comment
+      if: inputs.post-comment == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PYTHONPATH: ${{ github.action_path }}
+      run: |
+        python "${{ github.action_path }}/scripts/post_comment.py" \
+          --body-file /tmp/comment.md \
+          --repo "${{ github.repository }}" \
+          --pr "${{ github.event.pull_request.number }}"
