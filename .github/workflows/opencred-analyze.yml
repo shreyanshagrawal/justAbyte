@@ -1,0 +1,141 @@
+# ==================================================================================================
+# OpenCred PR Analysis Workflow (Untrusted Context)
+# ==================================================================================================
+# WHY THIS PIPELINE IS SPLIT INTO TWO WORKFLOWS:
+# 
+# Security boundary isolation is critical when evaluating untrusted pull requests:
+# 
+# 1. This workflow (`opencred-analyze.yml`) runs on `pull_request` with the MINIMAL permission:
+#    `contents: read` only. It evaluates arbitrary PRs from outside contributors and forks.
+#    Because external PRs may contain hostile changes, this workflow has NO write permissions
+#    and NO repository secrets. Crucially, it NEVER uses `pull_request_target`, which would
+#    dangerously grant elevated write permissions to runs triggered by untrusted branches.
+#    All code executed in this workflow is checked out strictly from the BASE branch
+#    (`github.event.pull_request.base.sha`). The PR head checkout (`pr/`) is treated strictly as
+#    passive, untrusted data: its diff and metadata are parsed, but no code from `pr/` is ever
+#    imported, executed, or added to PYTHONPATH.
+# 
+# 2. A separate follow-up workflow (e.g., `opencred-comment.yml`) runs on `workflow_run`
+#    (triggered upon completion of this analysis workflow) with elevated permissions
+#    (`pull-requests: write` or `issues: write`). That downstream workflow executes entirely in
+#    the context of the default base branch, downloads the validated `opencred-result` artifact
+#    produced here, and posts the advisory comment without ever running arbitrary fork code.
+# 
+# Splitting analysis (untrusted, read-only) from commenting/reporting (trusted, write-access)
+# prevents pull request authors from exfiltrating secrets or tampering with assessment results.
+# ==================================================================================================
+
+name: OpenCred Analysis
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Top-level permissions: strictly read-only content access.
+# No issues: write, pull-requests: write, or secrets access are permitted in this untrusted phase.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      # Step 1: Checkout the BASE branch of the repository.
+      # Per AGENTS.md rule 7, trust manifests, configuration, and analysis code MUST come
+      # exclusively from the base branch, ensuring PR authors cannot tamper with their own trust scores.
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Step 2: Checkout the PR head into a separate directory "pr/" as passive data.
+      # persist-credentials: false prevents credential reuse. No scripts in "pr/" are executed.
+      - name: Checkout PR head (untrusted data)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Step 3: Set up Python from .python-version and install OpenCred from the BASE checkout.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install OpenCred from base repository
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Step 4: Extract PR diff and assemble inputs from base branch
+      - name: Extract git diff between base and PR head
+        run: |
+          git fetch origin ${{ github.event.pull_request.head.sha }} || true
+          git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > pr_diff.patch
+
+      - name: Generate PullRequestRecord JSON
+        run: |
+          BUILDER="scripts/build_pr_record.py"
+          if [ ! -f "$BUILDER" ]; then
+            BUILDER="pr/scripts/build_pr_record.py"
+          fi
+          python "$BUILDER" \
+            --event "${{ github.event_path }}" \
+            --diff pr_diff.patch \
+            --out pr_record.json
+
+      - name: Prepare assessment directories
+        run: |
+          mkdir -p .opencred/manifests .opencred/telemetry .opencred/history
+          # If repository base manifests directory exists, use it; otherwise create empty placeholder directory
+          if [ -d "manifests" ]; then
+            cp -r manifests/* .opencred/manifests/ 2>/dev/null || true
+          fi
+          # Ensure a minimal history file exists
+          if [ ! -f ".opencred/history/contributor_history.json" ]; then
+            echo "[]" > .opencred/history/contributor_history.json
+          fi
+
+      # Step 5: Run OpenCred advisory assessment
+      - name: Run OpenCred Assessment
+        run: |
+          opencred assess \
+            --pr pr_record.json \
+            --base-manifests .opencred/manifests \
+            --telemetry-dir .opencred/telemetry \
+            --evaluator "${{ github.repository }}" \
+            --history .opencred/history/contributor_history.json \
+            --format json > raw_assessment.json
+          python -c "import json; assessment = json.load(open('raw_assessment.json')); pr_number = ${{ github.event.pull_request.number }}; result = {'assessment': assessment, 'pr_number': pr_number}; json.dump(result, open('result.json', 'w'), indent=2)"
+
+      # Step 6: Validate result.json schema
+      - name: Validate assessment result schema
+        run: |
+          VALIDATOR="scripts/validate_result.py"
+          if [ ! -f "$VALIDATOR" ]; then
+            VALIDATOR="pr/scripts/validate_result.py"
+          fi
+          python "$VALIDATOR" result.json
+
+      # Step 7: Upload assessment result artifact
+      - name: Upload OpenCred result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencred-result
+          path: result.json
+          retention-days: 7

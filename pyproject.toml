@@ -18,6 +18,7 @@ dev = [
     "pytest",
     "ruff",
     "mypy",
+    "pyyaml",
 ]
 
 [project.scripts]
@@ -25,12 +26,14 @@ opencred = "opencred.cli.main:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src", "."]
 markers = [
     "fairness: tests covering fairness properties of OpenCred evaluation",
 ]
 
 [tool.ruff]
 line-length = 100
+extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
