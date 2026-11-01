@@ -189,19 +189,30 @@ python scripts/evaluate.py --seed 42 --gates examples/gates.json
 OpenCred splits pull request assessment into two distinct GitHub Actions workflows to guarantee fork safety:
 
 ```
-[Untrusted PR Event]
-        │
-        ▼
-.github/workflows/opencred-analyze.yml
-(Trigger: pull_request | Permissions: contents: read | Base Branch Checkout)
-        │
-        ▼ Produces result.json artifact
-.github/workflows/opencred-comment.yml
-(Trigger: workflow_run on default branch | Permissions: pull-requests: write)
-        │
-        ▼
-Updates advisory PR comment via GitHub REST API
+name: OpenCred Assessment
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  opencred:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OpenCred Assessment
+        uses: shreyanshagrawal/justAbyte@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+Put this in the github/workflows and maintain a manifests/<Ownern user name>__<repo name>.td to score people
 
 ### Why This Design is Fork-Safe
 1. **No `pull_request_target`**: `opencred-analyze.yml` runs under standard `pull_request` triggers with `contents: read` permissions. It has zero access to repository secrets or write tokens.
