@@ -218,4 +218,4 @@ Updates advisory PR comment via GitHub REST API
 - **Starting Value Thresholds**: Constants configured in [`src/opencred/core/config.py`](file:///Users/shreyansh/Documents/Coding/hackathon/hacktober/src/opencred/core/config.py) are baseline starting values designed for empirical sensitivity tuning, not mathematically proven global optima.
 - **AI Analyzer is Strictly Advisory**: The optional LLM campaign analyzer provides qualitative summaries but cannot alter numerical scores or triage outcomes. Core OpenCred correctness is independent of AI availability. 
 
-testing
+Ending
