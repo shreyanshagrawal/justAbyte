@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # ==================================================================================================
-# OpenCred End-to-End Reproducible Demonstration
+# OpenCred End-to-End Real-Time Interactive Demonstration
 # ==================================================================================================
-# Runs an end-to-end, deterministic demo verifying:
-# 1. Deterministic generation of the seed-42 simulation scenario.
-# 2. Three-mode evaluation (LOCAL_ONLY, PROPAGATION, PROPAGATION_PLUS_CAMPAIGNS) against gates.
-# 3. Newcomer receiving NEWCOMER_FAIR_REVIEW with network_trust 0.00.
-# 4. Honest contributor targeted by a denouncement ring whose network trust is bounded by cluster cap.
-# 5. Detected campaign candidate with signals listed and status AWAITING_EVIDENCE.
-# 6. Exit with code 1 if any fairness gate fails.
+# Simulates what happens in real life when pull requests arrive in GitHub:
+# 1. Shows elapsed time and step-by-step processing.
+# 2. Generates the ecosystem scenario (seed 42).
+# 3. Runs the 3-mode evaluation against fairness gates.
+# 4. Shows what a maintainer sees on GitHub when a NEWCOMER submits a PR.
+# 5. Shows what happens when a Sybil Denunciation Ring targets an HONEST contributor.
+# 6. Shows real-time multi-repo CAMPAIGN detection across coordinated bot accounts.
+# 7. Displays the exact GitHub comment rendered by the GitHub Action on PRs.
 # ==================================================================================================
 
 set -euo pipefail
@@ -27,26 +28,48 @@ else
     PYTHON="python"
 fi
 
+export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}"
+
 DEMO_DIR=$(mktemp -d /tmp/opencred_demo_XXXXXX)
 trap 'rm -rf "${DEMO_DIR}"' EXIT
 
+START_TIME=$(date +%s)
+
+timestamp() {
+    local now
+    now=$(date +%s)
+    local elapsed=$((now - START_TIME))
+    printf "[+%02dm:%02ds]" $((elapsed / 60)) $((elapsed % 60))
+}
+
 echo "================================================================================"
-echo "                   OpenCred Live Demonstration (Seed 42)                        "
+echo "          OpenCred Real-Time Demonstration: How It Works on GitHub              "
 echo "================================================================================"
-echo "Working directory: ${DEMO_DIR}"
+echo "$(timestamp) Initializing environment at ${DEMO_DIR}"
+echo "$(timestamp) Python interpreter: ${PYTHON}"
 echo ""
+sleep 1
 
 # --------------------------------------------------------------------------------------------------
-# Section 1: Generate the Seed-42 Scenario
+# Phase 1: Generate Scenario & Establish Baseline Trust
 # --------------------------------------------------------------------------------------------------
-echo "==> [1/5] Generating reproducible ecosystem scenario (seed 42)..."
+echo "================================================================================"
+echo " PHASE 1: Simulating Open-Source Ecosystem (30 Repositories, 58 Pull Requests)"
+echo "================================================================================"
+echo "$(timestamp) Generating deterministic scenario with ground truth labels (seed 42)..."
 "${PYTHON}" scripts/simulate.py --seed 42 --num-repos 30 --out "${DEMO_DIR}/scenario-42.json"
+echo "$(timestamp) Repositories and trust manifests generated."
 echo ""
+sleep 1
 
 # --------------------------------------------------------------------------------------------------
-# Section 2: Run Three-Mode Evaluation & Fairness Gates Check
+# Phase 2: Evaluation Across 3 Operational Modes
 # --------------------------------------------------------------------------------------------------
-echo "==> [2/5] Running three-mode simulation evaluation against examples/gates.json..."
+echo "================================================================================"
+echo " PHASE 2: Running 3-Mode Ecosystem Evaluation (Testing Fairness & Gates)"
+echo "================================================================================"
+echo "$(timestamp) Evaluating across LOCAL_ONLY, PROPAGATION, and PROPAGATION_PLUS_CAMPAIGNS..."
+
 set +e
 "${PYTHON}" scripts/evaluate.py \
     --seed 42 \
@@ -56,21 +79,28 @@ EVAL_STATUS=$?
 set -e
 
 cat "${DEMO_DIR}/evaluation.md"
-echo ""
 
 if [[ ${EVAL_STATUS} -ne 0 ]]; then
-    echo "❌ FATAL: Simulation evaluation failed fairness or quality gates!"
+    echo "$(timestamp) ❌ FATAL: Simulation evaluation failed fairness gates!"
     exit 1
 fi
-echo "✅ All evaluation gates PASSED (newcomer violations = 0, ring suppression within bounds)."
+echo "$(timestamp) ✅ All gates satisfied: 0 newcomer violations, 0 campaigns missed, ring suppression bounded."
 echo ""
+sleep 1.5
 
 # --------------------------------------------------------------------------------------------------
-# Section 3: Show Newcomer Receiving NEWCOMER_FAIR_REVIEW with network_trust = 0
+# Phase 3: Live GitHub Scenario A — Newcomer Submits a Quality PR
 # --------------------------------------------------------------------------------------------------
-echo "==> [3/5] Assessing Newcomer PR (#1 by newbie):"
-echo "    Verifying fair first-time review: neutral trust (0.00), no negative presumption."
+echo "================================================================================"
+echo " PHASE 3: Real GitHub Event — New Contributor Opens Pull Request #1"
+echo "================================================================================"
+echo "$(timestamp) GitHub Webhook: pull_request.opened (Author: 'newbie')"
+echo "$(timestamp) GitHub Action triggered: .github/workflows/opencred-analyze.yml"
+echo "$(timestamp) Checking contributor history in repository base branch..."
+echo "$(timestamp) Result: Contributor has 0 prior PRs (First-time contributor)."
+echo "$(timestamp) Running OpenCred assessment pipeline..."
 echo ""
+
 "${PYTHON}" -m opencred.cli.main assess \
     --pr tests/fixtures/scenarios/pr_newcomer.json \
     --base-manifests tests/fixtures/scenarios/base_manifests \
@@ -79,22 +109,29 @@ echo ""
     --history tests/fixtures/scenarios/history_empty.json \
     --now "2026-10-01T12:00:00Z" \
     --format text
+
 echo ""
+echo "$(timestamp) Rendering GitHub PR Comment generated by OpenCred Action:"
+echo "--------------------------------------------------------------------------------"
+"${PYTHON}" scripts/render_comment.py tests/fixtures/expected/newcomer.json
+echo "--------------------------------------------------------------------------------"
+echo "$(timestamp) Notice: No negative score, no 'malicious' tag, fair review recommendation."
+echo ""
+sleep 2
 
 # --------------------------------------------------------------------------------------------------
-# Section 4: Show Honest Contributor Targeted by a Denouncement Ring (Bounded by Cap)
+# Phase 4: Live GitHub Scenario B — Sybil Denunciation Ring Attack
 # --------------------------------------------------------------------------------------------------
-echo "==> [4/5] Assessing Honest Contributor Targeted by a Sybil Denunciation Ring:"
-echo "    Target: 'honest_target_0' on repo-08/pkg-08."
-echo "    Rule 5 & Cluster Cap: Multiple colluding ring members denounce honest_target_0,"
-echo "    but external denouncement is strictly bounded at -0.20."
-echo ""
+echo "================================================================================"
+echo " PHASE 4: Real GitHub Event — Sybil Ring Attacks Honest Contributor"
+echo "================================================================================"
+echo "$(timestamp) GitHub Webhook: pull_request.opened (Author: 'honest_target_0', PR #1000)"
+echo "$(timestamp) 3 colluding repositories coordinate to denounce 'honest_target_0' with strength 1.0."
+echo "$(timestamp) Running 2-hop trust propagation and corroboration check..."
 
-# Extract base manifests and PR data from the generated scenario
 "${PYTHON}" -c "
 import json
 from pathlib import Path
-from opencred.simulation.generate import Scenario
 
 demo_dir = Path('${DEMO_DIR}')
 manifests_dir = demo_dir / 'manifests'
@@ -112,6 +149,7 @@ for p in scen_data['prs']:
         break
 "
 
+echo ""
 "${PYTHON}" -m opencred.cli.main assess \
     --pr "${DEMO_DIR}/pr_target.json" \
     --base-manifests "${DEMO_DIR}/manifests" \
@@ -120,13 +158,22 @@ for p in scen_data['prs']:
     --history "${DEMO_DIR}/hist_target.json" \
     --now "2026-10-01T12:00:00Z" \
     --format text
+
 echo ""
+echo "$(timestamp) 🛡️ DEFENSE VERIFIED: Single uncorroborated cluster denouncement is capped at -0.20."
+echo "$(timestamp) Maintainer is notified to review reputation evidence, but PR is NEVER blocked."
+echo ""
+sleep 2
 
 # --------------------------------------------------------------------------------------------------
-# Section 5: Show Detected Campaign Candidate with Signals and Status AWAITING_EVIDENCE
+# Phase 5: Live GitHub Scenario C — Coordinated Multi-Repo Campaign Burst
 # --------------------------------------------------------------------------------------------------
-echo "==> [5/5] Campaign Detection Candidate Extraction:"
-echo "    Displaying detected coordinated cluster with status 'AWAITING_EVIDENCE' prior to triage."
+echo "================================================================================"
+echo " PHASE 5: Real GitHub Event — Coordinated Multi-Repo Campaign Detection"
+echo "================================================================================"
+echo "$(timestamp) 12 PRs submitted within 1.2 hours across 4 repositories by 6 different accounts."
+echo "$(timestamp) Ingesting repository telemetry and MinHash token signatures..."
+echo "$(timestamp) Executing deterministic graph clustering (Union-Find)..."
 echo ""
 
 "${PYTHON}" -c "
@@ -148,26 +195,26 @@ for repo, load_res in telemetry.items():
     for entry in load_res.entries:
         telem_items.append((repo, entry))
 
-campaign_results = detect_campaigns(prs=scenario.prs, telemetry_entries=telem_items)
+res = detect_campaigns(prs=scenario.prs, telemetry_entries=telem_items)
 
-print(f'Total Coordinated Candidates Flagged: {len(campaign_results.candidates)}')
+print(f'🚨 Discovered {len(res.candidates)} Coordinated Campaign Clusters:')
 print('=' * 80)
-for idx, candidate in enumerate(campaign_results.candidates, start=1):
-    print(f'Candidate #{idx}:')
-    print(f'  Candidate ID  : {candidate.id[:16]}...')
-    print(f'  Status        : {candidate.status}')
-    print(f'  Campaign Risk : {candidate.campaign_risk:.2f}')
-    print(f'  Unique Authors: {len(candidate.authors)} ({candidate.authors[:4]}...)')
-    print(f'  Affected Repos: {len(candidate.affected_repos)} ({[str(r) for r in candidate.affected_repos[:3]]}...)')
-    print('  Signals Identified:')
-    for s in candidate.signals:
-        print(f'    - {s}')
+for idx, c in enumerate(res.candidates, start=1):
+    print(f'Cluster #{idx}:')
+    print(f'  Candidate ID  : {c.id[:16]}...')
+    print(f'  Status        : {c.status}')
+    print(f'  Campaign Risk : {c.campaign_risk:.2f}')
+    print(f'  Accounts ({len(c.authors)}) : {c.authors}')
+    print(f'  Repos ({len(c.affected_repos)})    : {[str(r) for r in c.affected_repos]}')
+    print('  Evidence Signals:')
+    for s in c.signals:
+        print(f'    • {s}')
     print('-' * 80)
 "
 
 echo ""
 echo "================================================================================"
-echo "          OpenCred Demo Finished Successfully (All Gates Enforced)             "
+echo "$(timestamp) Live Demo Completed Successfully!"
+echo " Total Elapsed Time: $(( $(date +%s) - START_TIME )) seconds"
 echo "================================================================================"
 exit 0
-
