@@ -1,25 +1,36 @@
 version: 2
+
 updates:
-  - package-ecosystem: 'pip'
-    directory: '/'
+  # Python / pip dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
     groups:
       python-dependencies:
         patterns:
-          - '*'
+          - "*"
         update-types:
-          - 'minor'
-          - 'patch'
+          - "minor"
+          - "patch"
 
-  - package-ecosystem: 'github-actions'
-    directory: '/'
+  # GitHub Actions workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: 'weekly'
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
     groups:
-      actions-dependencies:
+      github-actions:
         patterns:
-          - '*'
+          - "*"
         update-types:
-          - 'minor'
-          - 'patch'
+          - "minor"
+          - "patch"
