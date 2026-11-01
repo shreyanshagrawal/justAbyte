@@ -71,7 +71,7 @@ jobs:
 
       # Step 3: Set up Python from .python-version and install OpenCred from the BASE checkout.
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version-file: '.python-version'
           cache: 'pip'
