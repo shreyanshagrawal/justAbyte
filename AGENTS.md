@@ -14,6 +14,9 @@ OpenCred is a Git-native, decentralized trust and campaign-detection system for 
 - **Testing & Quality**: pytest for tests, ruff for linting and formatting, mypy in strict mode.
 - **Architecture Constraints**: No database. No always-on server. No blockchain. No peer-to-peer networking.
 - **Dependency Policy**: Minimize dependencies. Before adding any dependency, state its name, its purpose, and why the standard library is insufficient.
+  - `pydantic`: Strong schema validation, model serialization, and type coercion. Python standard library lacks comparable declarative schema enforcement.
+  - `typer`: CLI framework with type annotations and deterministic parameter parsing. `argparse` lacks unified type validation and shell-completion support.
+  - `pyyaml`: YAML parsing and AST inspection for GitHub Actions workflows in `scripts/check_workflows.py`. Python standard library lacks native YAML support.
 
 ---
 

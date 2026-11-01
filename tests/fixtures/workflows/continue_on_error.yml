@@ -1,0 +1,23 @@
+name: Continue On Error Workflow
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Flaky Step
+        continue-on-error: true
+        run: echo "flaky"
+
