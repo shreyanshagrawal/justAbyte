@@ -1,0 +1,103 @@
+# ==================================================================================================
+# OpenCred Advisory Comment Workflow (Privileged Context)
+# ==================================================================================================
+# This workflow runs in the trusted default branch context after `opencred-analyze` completes.
+# It receives ONLY the validated assessment artifact produced by `opencred-analyze` and posts
+# or updates a single advisory comment on the pull request.
+# 
+# Security rules enforced:
+# - Triggered ONLY via `workflow_run` when `opencred-analyze` finishes with conclusion "success".
+# - Runs ONLY when the triggering event was `pull_request`.
+# - Top-level permissions: contents: read.
+# - Job-level permissions: strictly `pull-requests: write` (no admin, write code, or repo secrets).
+# - NEVER checks out PR code; executes solely with scripts from the base checkout.
+# - NEVER interpolates untrusted artifact strings directly into bash commands.
+# - Strictly validates the result against OpenCred schemas before reading any field.
+# - Comment is identified by `<!-- opencred-assessment -->` to update in-place without duplicates.
+# - Explicitly asserts that the evaluation is advisory and never blocks the pull request.
+# ==================================================================================================
+
+name: OpenCred Comment
+
+on:
+  workflow_run:
+    workflows: ["OpenCred Analysis"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
+  cancel-in-progress: true
+
+jobs:
+  comment:
+    name: comment
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Only run when opencred-analyze succeeded and was triggered by a pull_request event
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # Step 1: Checkout the trusted repository base branch (NOT PR head)
+      - name: Checkout repository base
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'pyproject.toml'
+
+      - name: Install dependencies from base
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Step 3: Download assessment result artifact from triggering workflow run
+      - name: Download opencred-result artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: opencred-result
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: artifacts/
+
+      # Step 4: Validate JSON schema before reading any field
+      - name: Validate result JSON schema
+        run: |
+          python scripts/validate_result.py artifacts/result.json
+
+      # Step 5: Read PR number strictly from validated result JSON
+      - name: Extract validated PR number
+        id: pr_info
+        run: |
+          PR_NUM=$(python scripts/validate_result.py artifacts/result.json --print-pr-number)
+          echo "pr_number=${PR_NUM}" >> "$GITHUB_OUTPUT"
+
+      # Step 6: Render markdown comment using only validated fields
+      - name: Render comment Markdown
+        run: |
+          python scripts/render_comment.py artifacts/result.json --out comment.md
+
+      # Step 7: Create or update comment identified by <!-- opencred-assessment -->
+      - name: Post or update advisory comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pr_info.outputs.pr_number }}
+        run: |
+          python scripts/post_comment.py \
+            --repo "${{ github.repository }}" \
+            --pr "$PR_NUMBER" \
+            --comment-file comment.md
+
