@@ -216,4 +216,6 @@ Updates advisory PR comment via GitHub REST API
 - **Telemetry Freshness is Asynchronous**: Peer telemetry logs are distributed via Git and committed periodically. Telemetry is not an instant, real-time message bus.
 - **Sybil Resistance is Bounded, Not Solved**: While OpenCred limits multi-hop propagation depth to 2 hops, bounds single-origin influence, and caps clustered peer weights, determined adversaries creating extensive networks of independent repositories can still exert influence.
 - **Starting Value Thresholds**: Constants configured in [`src/opencred/core/config.py`](file:///Users/shreyansh/Documents/Coding/hackathon/hacktober/src/opencred/core/config.py) are baseline starting values designed for empirical sensitivity tuning, not mathematically proven global optima.
-- **AI Analyzer is Strictly Advisory**: The optional LLM campaign analyzer provides qualitative summaries but cannot alter numerical scores or triage outcomes. Core OpenCred correctness is independent of AI availability.
+- **AI Analyzer is Strictly Advisory**: The optional LLM campaign analyzer provides qualitative summaries but cannot alter numerical scores or triage outcomes. Core OpenCred correctness is independent of AI availability. 
+
+Ending
