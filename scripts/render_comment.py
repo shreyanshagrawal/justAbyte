@@ -23,9 +23,11 @@ from typing import Any
 from opencred.core.assessment import Assessment
 from opencred.core.triage import TriageOutcome
 
+# Import from scripts directory
 try:
     from scripts.validate_result import ValidatedAssessmentResult, validate_result_data
 except ModuleNotFoundError:
+    # If running with scripts/ on sys.path or as sibling script
     from validate_result import ValidatedAssessmentResult, validate_result_data  # type: ignore[no-redef]
 
 COMMENT_MARKER = "<!-- opencred-assessment -->"

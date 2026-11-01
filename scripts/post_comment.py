@@ -21,7 +21,10 @@ import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
 
-from scripts.render_comment import COMMENT_MARKER
+try:
+    from scripts.render_comment import COMMENT_MARKER
+except ModuleNotFoundError:
+    from render_comment import COMMENT_MARKER  # type: ignore[no-redef]
 
 _GITHUB_API_URL = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 
