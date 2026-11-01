@@ -86,10 +86,10 @@ runs:
         "
 
         # Export step outputs
-        TRIAGE=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['triage_decision'])")
-        TRUST=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['network_trust'])")
-        RISK=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['campaign_risk'])")
-        QUALITY=$(python -c "import json; print(json.load(open('/tmp/result.json'))['assessment']['contribution_quality_evidence'])")
+        TRIAGE=$(python -c "import json; data = json.load(open('/tmp/result.json'))['assessment']; print(data.get('triage') or data.get('triage_decision', ''))")
+        TRUST=$(python -c "import json; data = json.load(open('/tmp/result.json'))['assessment']; print(data.get('network_trust', '0.0'))")
+        RISK=$(python -c "import json; data = json.load(open('/tmp/result.json'))['assessment']; print(data.get('campaign_risk', '0.0'))")
+        QUALITY=$(python -c "import json; data = json.load(open('/tmp/result.json'))['assessment']; print(data.get('contribution_quality_evidence', '0.0'))")
 
         echo "triage_decision=${TRIAGE}" >> "$GITHUB_OUTPUT"
         echo "network_trust=${TRUST}" >> "$GITHUB_OUTPUT"
